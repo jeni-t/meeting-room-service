@@ -35,9 +35,37 @@ export const cancel = async (req, res, next) => {
   } catch (e) { next(e); }
 };
 
-export const utilization = async (req, res, next) => {
+export const utilization = async (req, res) => {
   try {
-    const data = await roomUtilization(req.query.from, req.query.to);
-    res.json(data);
-  } catch (e) { next(e); }
+    const bookings = await Booking.find();
+    const rooms = await Room.find();
+
+    const report = rooms.map(room => {
+      const roomBookings = bookings.filter(
+        b =>
+          b.roomId.toString() === room._id.toString() &&
+          b.status !== "cancelled"
+      );
+
+      const totalSlots = room.totalSlots || 10;
+      const bookedSlots = roomBookings.length;
+
+      const utilization =
+        ((bookedSlots / totalSlots) * 100).toFixed(0) + "%";
+
+      return {
+        roomId: room.name,
+        totalSlots,
+        bookedSlots,
+        utilization
+      };
+    });
+
+    res.status(200).json({
+      totalRooms: rooms.length,
+      report
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
